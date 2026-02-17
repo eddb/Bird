@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head><title>Bird Image Test</title></head>
+<body>
+<h1>Bird Image Loading Test</h1>
+<p>Open the browser console (F12) to see results.</p>
+
+<h2>Test 1: fetch() with origin=*</h2>
+<div id="t1">Loading...</div>
+<img id="img1" style="max-width:300px">
+
+<h2>Test 2: JSONP (script injection)</h2>
+<div id="t2">Loading...</div>
+<img id="img2" style="max-width:300px">
+
+<h2>Test 3: fetch() with origin=* (different bird)</h2>
+<div id="t3">Loading...</div>
+<img id="img3" style="max-width:300px">
+
+<h2>Test 4: Direct img src to known Wikimedia URL</h2>
+<div id="t4">If you see a robin below, direct Wikimedia image URLs work:</div>
+<img id="img4" style="max-width:300px" 
+  src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Erithacus_rubecula_with_cocked_head.jpg/400px-Erithacus_rubecula_with_cocked_head.jpg"
+  onerror="document.getElementById('t4').textContent='FAILED - direct Wikimedia URL blocked'">
+
+<script>
+// TEST 1: fetch with origin=*
+(async function(){
+  const el = document.getElementById('t1');
+  const img = document.getElementById('img1');
+  try {
+    const url = "https://en.wikipedia.org/w/api.php?action=query&titles=Turdus_migratorius&prop=pageimages&pithumbsize=400&format=json&origin=*";
+    console.log("Test 1: fetching", url);
+    const resp = await fetch(url);
+    console.log("Test 1: response status", resp.status, resp.statusText);
+    const data = await resp.json();
+    console.log("Test 1: data", JSON.stringify(data));
+    const pages = data.query.pages;
+    const pid = Object.keys(pages)[0];
+    if (pages[pid].thumbnail) {
+      el.textContent = "SUCCESS! Image URL: " + pages[pid].thumbnail.source;
+      img.src = pages[pid].thumbnail.source;
+    } else {
+      el.textContent = "Got response but no thumbnail found";
+    }
+  } catch(e) {
+    el.textContent = "FAILED: " + e.message;
+    console.error("Test 1 error:", e);
+  }
+})();
+
+// TEST 2: JSONP
+(function(){
+  const el = document.getElementById('t2');
+  const img = document.getElementById('img2');
+  window._testJSONP = function(data) {
+    console.log("Test 2: JSONP callback received", JSON.stringify(data));
+    try {
+      const pages = data.query.pages;
+      const pid = Object.keys(pages)[0];
+      if (pages[pid].thumbnail) {
+        el.textContent = "SUCCESS! Image URL: " + pages[pid].thumbnail.source;
+        img.src = pages[pid].thumbnail.source;
+      } else {
+        el.textContent = "Got response but no thumbnail found";
+      }
+    } catch(e) {
+      el.textContent = "JSONP parse error: " + e.message;
+    }
+  };
+  const s = document.createElement('script');
+  s.src = "https://en.wikipedia.org/w/api.php?action=query&titles=Erithacus_rubecula&prop=pageimages&pithumbsize=400&format=json&callback=_testJSONP";
+  s.onerror = function(e) {
+    el.textContent = "JSONP script load FAILED";
+    console.error("Test 2: script load error", e);
+  };
+  console.log("Test 2: injecting script", s.src);
+  document.body.appendChild(s);
+})();
+
+// TEST 3: fetch with different bird
+(async function(){
+  const el = document.getElementById('t3');
+  const img = document.getElementById('img3');
+  try {
+    const url = "https://en.wikipedia.org/w/api.php?action=query&titles=Bucephala_albeola&prop=pageimages&pithumbsize=400&format=json&origin=*";
+    console.log("Test 3: fetching", url);
+    const resp = await fetch(url);
+    console.log("Test 3: response status", resp.status);
+    const text = await resp.text();
+    console.log("Test 3: raw response (first 500 chars)", text.substring(0, 500));
+    const data = JSON.parse(text);
+    const pages = data.query.pages;
+    const pid = Object.keys(pages)[0];
+    if (pages[pid].thumbnail) {
+      el.textContent = "SUCCESS! Image URL: " + pages[pid].thumbnail.source;
+      img.src = pages[pid].thumbnail.source;
+    } else {
+      el.textContent = "Got response but no thumbnail";
+    }
+  } catch(e) {
+    el.textContent = "FAILED: " + e.message;
+    console.error("Test 3 error:", e);
+  }
+})();
+</script>
+</body>
+</html>
+
